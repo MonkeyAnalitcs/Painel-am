@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Painel de AM — Bolten</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#fafaf9; --card:#ffffff; --border:#e7e5e4; --border-strong:#d6d3d1;
+    --text:#292524; --text-2:#78716c; --text-3:#a8a29e;
+    --orange:#ce8a1d; --orange-soft:#f7ecd9;
+    --green:#4d7c0f; --yellow:#ca8a04; --red:#b91c1c;
+    --green-bg:#f0f7e8; --yellow-bg:#fdf6e3; --red-bg:#fbeaea;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);
+    font-size:14px;line-height:1.5;padding:32px 24px 64px}
+  .wrap{max-width:1180px;margin:0 auto}
+
+  /* Cabeçalho */
+  header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;
+    gap:16px;margin-bottom:8px}
+  .eyebrow{font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--orange)}
+  h1{font-size:26px;font-weight:800;letter-spacing:-.02em;margin-top:4px}
+  .sub{color:var(--text-2);margin-top:4px}
+  .controls{display:flex;gap:8px;align-items:center}
+  select{font:inherit;font-weight:500;padding:8px 12px;border:1px solid var(--border-strong);
+    border-radius:8px;background:var(--card);color:var(--text);cursor:pointer}
+  select:focus-visible{outline:2px solid var(--orange);outline-offset:1px}
+
+  /* Farol — assinatura do painel */
+  .farol{display:flex;height:10px;border-radius:6px;overflow:hidden;margin:20px 0 28px;
+    border:1px solid var(--border)}
+  .farol div{transition:width .6s ease}
+  .farol .fv{background:var(--green)} .farol .fa{background:var(--yellow)} .farol .fr{background:var(--red)}
+  .farol-legend{display:flex;gap:16px;font-size:12px;color:var(--text-2);margin-top:-20px;margin-bottom:28px}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:1px}
+
+  /* KPIs */
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:28px}
+  .kpi{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px}
+  .kpi .lbl{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3)}
+  .kpi .val{font-size:28px;font-weight:800;letter-spacing:-.02em;margin-top:6px}
+  .kpi .sub2{font-size:12px;color:var(--text-2);margin-top:2px}
+  .kpi.g .val{color:var(--green)} .kpi.y .val{color:var(--yellow)} .kpi.r .val{color:var(--red)}
+
+  /* Grade de cartões */
+  .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:16px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;
+    grid-column:span 6;min-width:0}
+  .card.full{grid-column:span 12}
+  .card h2{font-size:14px;font-weight:700;margin-bottom:2px}
+  .card .hint{font-size:12px;color:var(--text-2);margin-bottom:14px}
+  .chart-box{position:relative;height:260px}
+  @media(max-width:820px){.card{grid-column:span 12}body{padding:20px 14px 48px}}
+
+  /* Listas */
+  ul.plain{list-style:none}
+  ul.plain li{display:flex;justify-content:space-between;gap:12px;padding:8px 0;
+    border-bottom:1px solid var(--border);font-size:13px}
+  ul.plain li:last-child{border-bottom:none}
+  ul.plain .n{font-weight:600;white-space:nowrap}
+  .tag{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px}
+  .tag.g{background:var(--green-bg);color:var(--green)}
+  .tag.y{background:var(--yellow-bg);color:var(--yellow)}
+  .tag.r{background:var(--red-bg);color:var(--red)}
+
+  /* Estados */
+  #status{padding:48px 0;text-align:center;color:var(--text-2)}
+  #status.err{color:var(--red)}
+  #status code{background:var(--orange-soft);padding:2px 6px;border-radius:4px;font-size:12px}
+  footer{margin-top:40px;font-size:12px;color:var(--text-3);text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <div class="eyebrow">Bolten · Account Management</div>
+      <h1>Painel de AM</h1>
+      <div class="sub" id="periodo">—</div>
+    </div>
+    <div class="controls">
+      <label for="execSel" class="sub" style="font-size:12px">Execução:</label>
+      <select id="execSel" aria-label="Selecionar execução"></select>
+    </div>
+  </header>
+
+  <div id="status">Carregando dados da planilha…</div>
+
+  <div id="painel" hidden>
+    <!-- Farol: proporção da carteira por saúde -->
+    <div class="farol" id="farol" title="Proporção da carteira por saúde"></div>
+    <div class="farol-legend">
+      <span><span class="dot" style="background:var(--green)"></span>Verde <b id="fVn">0</b></span>
+      <span><span class="dot" style="background:var(--yellow)"></span>Amarelo <b id="fAn">0</b></span>
+      <span><span class="dot" style="background:var(--red)"></span>Vermelho <b id="fRn">0</b></span>
+    </div>
+
+    <div class="kpis" id="kpis"></div>
+
+    <div class="grid">
+      <div class="card"><h2>Chamados por categoria</h2><div class="hint">Últimos 30 dias</div>
+        <div class="chart-box"><canvas id="cChamados"></canvas></div></div>
+      <div class="card"><h2>Feedbacks por categoria</h2><div class="hint">Últimos 30 dias</div>
+        <div class="chart-box"><canvas id="cFeedbacks"></canvas></div></div>
+      <div class="card"><h2>Feature requests</h2><div class="hint">Últimos 30 dias · agrupado por pedido</div>
+        <div class="chart-box"><canvas id="cFeats"></canvas></div></div>
+      <div class="card"><h2>Billing por grupo</h2><div class="hint">Semana vs. mês (qtd de eventos)</div>
+        <div class="chart-box"><canvas id="cBilling"></canvas></div></div>
+      <div class="card"><h2>Notas médias da carteira</h2><div class="hint">Escala 0–10 · base de AM no Notion</div>
+        <div class="chart-box"><canvas id="cNotas"></canvas></div></div>
+      <div class="card"><h2>Parceiros classificados</h2><div class="hint">Saúde por nota (verde ≥ 7 · amarelo 5–6,9 · vermelho &lt; 5)</div>
+        <ul class="plain" id="lSaude"></ul></div>
+      <div class="card"><h2>Base de parceiros</h2><div class="hint" id="baseTotal">Composição da planilha-mestre</div>
+        <ul class="plain" id="lBase"></ul></div>
+      <div class="card"><h2>Parceiros de atenção</h2><div class="hint">Sinalizados na planilha-mestre</div>
+        <ul class="plain" id="lAtencao"></ul></div>
+      <div class="card full"><h2>Evolução do billing</h2><div class="hint">Janela mensal, por execução do fluxo</div>
+        <div class="chart-box"><canvas id="cHist"></canvas></div></div>
+    </div>
+  </div>
+
+  <footer>Gerado pelo fluxo n8n de AM · dados publicados via GitHub API</footer>
+</div>
+
+<script>
+/* =========================================================
+   Os dados vêm do arquivo data.json neste mesmo repositório,
+   atualizado automaticamente pelo fluxo n8n a cada execução.
+   Nenhuma configuração é necessária aqui.
+   ========================================================= */
+const DATA_URL = "data.json";
+
+const C = { orange:'#ce8a1d', stone:'#a8a29e', green:'#4d7c0f', yellow:'#ca8a04',
+  red:'#b91c1c', grid:'#e7e5e4', text:'#78716c' };
+Chart.defaults.font.family = "'Inter', sans-serif";
+Chart.defaults.color = C.text;
+
+const num = v => {
+  if (v === null || v === undefined || v === '') return 0;
+  const n = parseFloat(String(v).replace(',', '.'));
+  return isNaN(n) ? 0 : n;
+};
+const charts = {};
+function draw(id, cfg){
+  if (charts[id]) charts[id].destroy();
+  charts[id] = new Chart(document.getElementById(id), cfg);
+}
+const axisQtd = (label, max) => ({
+  y: { beginAtZero: true, max, title: { display: true, text: label },
+       ticks: { precision: 0 }, grid: { color: C.grid } },
+  x: { grid: { display: false } }
+});
+function barCfg(labels, data, yLabel, colors){
+  return { type:'bar',
+    data:{ labels, datasets:[{ data, backgroundColor: colors || C.orange, borderRadius: 4 }] },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:false } }, scales: axisQtd(yLabel) } };
+}
+function countBy(rows, key){
+  const m = {};
+  rows.forEach(r => { const k = r[key] || 'Outros'; m[k] = (m[k] || 0) + (num(r.quantidade) || 1); });
+  return m;
+}
+const esc = s => String(s || '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+let ALL = [];
+
+function render(execId){
+  const rows = ALL.filter(r => r.data_execucao === execId);
+  const filt = p => rows.filter(p);
+  const ref = rows[0] || {};
+  document.getElementById('periodo').textContent =
+    `Período analisado: ${ref.periodo_inicio || '—'} a ${ref.periodo_fim || '—'}`;
+
+  // Farol + saúde
+  const saude = filt(r => r.tipo === 'saude_carteira');
+  const nv = saude.filter(r => r.categoria === 'verde').length;
+  const na = saude.filter(r => r.categoria === 'amarelo').length;
+  const nr = saude.filter(r => r.categoria === 'vermelho').length;
+  const tot = Math.max(nv + na + nr, 1);
+  document.getElementById('farol').innerHTML =
+    `<div class="fv" style="width:${nv/tot*100}%"></div>` +
+    `<div class="fa" style="width:${na/tot*100}%"></div>` +
+    `<div class="fr" style="width:${nr/tot*100}%"></div>`;
+  document.getElementById('fVn').textContent = nv;
+  document.getElementById('fAn').textContent = na;
+  document.getElementById('fRn').textContent = nr;
+
+  // KPIs de billing + base
+  const bRow = (per, cat) => {
+    const r = rows.find(x => x.tipo === 'billing' && x.periodo === per && x.categoria === cat);
+    return r ? num(r.quantidade) : 0;
+  };
+  const totalRow = rows.find(r => r.tipo === 'base_parceiros' && r.categoria === 'Total de parceiros');
+  const liquidoMes = bRow('mes','Vendas novas') - bRow('mes','Canceladas') + bRow('mes','Re-ativação');
+  const kpis = [
+    { lbl:'Vendas novas (mês)', val:bRow('mes','Vendas novas'), sub:`${bRow('semana','Vendas novas')} na semana` },
+    { lbl:'Canceladas (mês)', val:bRow('mes','Canceladas'), sub:`${bRow('semana','Canceladas')} na semana`, cls: bRow('mes','Canceladas') > 0 ? 'r' : '' },
+    { lbl:'Re-ativações (mês)', val:bRow('mes','Re-ativação'), sub:`${bRow('semana','Re-ativação')} na semana` },
+    { lbl:'Saldo líquido (mês)', val:(liquidoMes >= 0 ? '+' : '') + liquidoMes, cls: liquidoMes >= 0 ? 'g' : 'r', sub:'vendas − canceladas + reativações' },
+    { lbl:'Base de parceiros', val: totalRow ? num(totalRow.quantidade) : '—', sub:'planilha-mestre' },
+  ];
+  document.getElementById('kpis').innerHTML = kpis.map(k =>
+    `<div class="kpi ${k.cls||''}"><div class="lbl">${k.lbl}</div><div class="val">${k.val}</div><div class="sub2">${k.sub||''}</div></div>`
+  ).join('');
+
+  // Gráficos por categoria
+  const chamados = countBy(filt(r => r.tipo === 'chamado' && r.periodo === 'mes'), 'categoria');
+  draw('cChamados', barCfg(Object.keys(chamados), Object.values(chamados), 'Qtd de chamados'));
+  const fbs = countBy(filt(r => r.tipo === 'feedback' && r.periodo === 'mes'), 'categoria');
+  draw('cFeedbacks', barCfg(Object.keys(fbs), Object.values(fbs), 'Qtd de feedbacks'));
+  const feats = {};
+  filt(r => r.tipo === 'feature_request' && r.periodo === 'mes')
+    .forEach(r => { const k = r.detalhe || r.categoria || 'Outros'; feats[k] = (feats[k] || 0) + (num(r.quantidade) || 1); });
+  draw('cFeats', barCfg(Object.keys(feats), Object.values(feats), 'Qtd de pedidos'));
+
+  // Billing semana vs mês
+  const grupos = ['Vendas novas', 'Canceladas', 'Re-ativação'];
+  draw('cBilling', { type:'bar',
+    data:{ labels:grupos, datasets:[
+      { label:'Semana', data:grupos.map(g => bRow('semana', g)), backgroundColor:C.orange, borderRadius:4 },
+      { label:'Mês', data:grupos.map(g => bRow('mes', g)), backgroundColor:C.stone, borderRadius:4 } ] },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ position:'bottom' } }, scales: axisQtd('Qtd de eventos') } });
+
+  // Notas médias (0-10)
+  const notas = filt(r => r.tipo === 'nota_media');
+  draw('cNotas', { type:'bar',
+    data:{ labels: notas.map(r => r.categoria),
+      datasets:[{ data: notas.map(r => num(r.valor)), borderRadius:4,
+        backgroundColor: notas.map(r => { const v = num(r.valor); return v >= 7 ? C.green : v >= 5 ? C.yellow : C.red; }) }] },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:false } }, scales: axisQtd('Nota média (0–10)', 10) } });
+
+  // Lista de saúde por parceiro
+  const tagOf = s => s === 'verde' ? 'g' : s === 'amarelo' ? 'y' : 'r';
+  document.getElementById('lSaude').innerHTML = saude.length
+    ? saude.sort((a,b) => ({vermelho:0, amarelo:1, verde:2}[a.categoria] ?? 3) - ({vermelho:0, amarelo:1, verde:2}[b.categoria] ?? 3))
+        .map(r => `<li><span class="n">${esc(r.parceiro) || '—'}</span><span>${esc(r.detalhe)} <span class="tag ${tagOf(r.categoria)}">${esc(r.categoria)}</span></span></li>`).join('')
+    : '<li>Nenhum parceiro com nota preenchida nesta execução.</li>';
+
+  // Base de parceiros (lista) + atenção
+  const baseRows = filt(r => r.tipo === 'base_parceiros' && r.categoria !== 'Total de parceiros')
+    .sort((a,b) => num(b.quantidade) - num(a.quantidade)).slice(0, 12);
+  document.getElementById('baseTotal').textContent =
+    totalRow ? `Total: ${num(totalRow.quantidade)} parceiros` : 'Composição da planilha-mestre';
+  document.getElementById('lBase').innerHTML = baseRows.length
+    ? baseRows.map(r => `<li><span>${esc(r.categoria)}</span><span class="n">${num(r.quantidade)}</span></li>`).join('')
+    : '<li>Sem colunas categóricas na planilha para distribuir.</li>';
+  const atencao = filt(r => r.tipo === 'parceiro_atencao');
+  document.getElementById('lAtencao').innerHTML = atencao.length
+    ? atencao.map(r => `<li><span class="n">${esc(r.parceiro)}</span><span>${esc(r.detalhe)}</span></li>`).join('')
+    : '<li>Nenhum parceiro sinalizado.</li>';
+
+  // Histórico entre execuções (billing mês)
+  const execs = [...new Set(ALL.map(r => r.data_execucao))].sort();
+  const serie = cat => execs.map(e => {
+    const r = ALL.find(x => x.data_execucao === e && x.tipo === 'billing' && x.periodo === 'mes' && x.categoria === cat);
+    return r ? num(r.quantidade) : 0;
+  });
+  draw('cHist', { type:'line',
+    data:{ labels: execs.map(e => (e || '').slice(0, 10)), datasets:[
+      { label:'Vendas novas', data:serie('Vendas novas'), borderColor:C.green, backgroundColor:C.green, tension:.3 },
+      { label:'Canceladas', data:serie('Canceladas'), borderColor:C.red, backgroundColor:C.red, tension:.3 },
+      { label:'Re-ativações', data:serie('Re-ativação'), borderColor:C.orange, backgroundColor:C.orange, tension:.3 } ] },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ position:'bottom' } }, scales: axisQtd('Qtd de eventos (mês)') } });
+}
+
+function boot(rows){
+  ALL = rows.filter(r => r.data_execucao);
+  if (!ALL.length){
+    const st = document.getElementById('status');
+    st.classList.add('err');
+    st.innerHTML = 'O <code>data.json</code> foi lido, mas não há linhas com <code>data_execucao</code>. Rode o fluxo no n8n ao menos uma vez.';
+    return;
+  }
+  const execs = [...new Set(ALL.map(r => r.data_execucao))].sort().reverse();
+  const sel = document.getElementById('execSel');
+  sel.innerHTML = execs.map(e =>
+    `<option value="${esc(e)}">${esc((e || '').replace('T', ' ').slice(0, 16))}</option>`).join('');
+  sel.onchange = () => render(sel.value);
+  document.getElementById('status').hidden = true;
+  document.getElementById('painel').hidden = false;
+  render(execs[0]);
+}
+
+fetch(DATA_URL, { cache: 'no-store' })
+  .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+  .then(data => boot(Array.isArray(data) ? data : (data.rows || [])))
+  .catch(() => {
+    const st = document.getElementById('status');
+    st.classList.add('err');
+    st.innerHTML = 'Não encontrei o <code>data.json</code> no repositório. Rode o fluxo do n8n uma vez (o nó <b>GitHub - Publicar data.json</b> cria o arquivo) e recarregue.';
+  });
+</script>
+</body>
+</html>
